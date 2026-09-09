@@ -218,6 +218,7 @@ export function HomeView({ onOpen }: {onOpen: (view: ViewId) => void;}) {
           }
           actions={[
           { label: 'Performance', view: 'performance', primary: true },
+          { label: 'This PC & upgrades', view: 'system' },
           { label: exposed > 0 ? `Antivirus · ${exposed} exposed` : 'Processes', view: exposed > 0 ? 'antivirus' : 'processes' }]
           }
           onOpen={onOpen}

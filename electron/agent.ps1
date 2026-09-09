@@ -705,6 +705,141 @@ function Invoke-Program([string]$file, [string]$arguments, [int]$timeoutSeconds)
   @{ pid = $started.Id; finished = $finished; exitCode = if ($finished) { $started.ExitCode } else { $null } }
 }
 
+# --------------------------------------------------------------------- specs
+
+# Everything the This PC page shows, read once from WMI/SMBIOS. Slow on the
+# first call (the providers load), so it is cached; hardware does not change
+# while the app runs.
+$script:specsCache = $null
+
+function Get-SystemSpecs {
+  if ($script:specsCache) { return $script:specsCache }
+  $specs = @{
+    computer = @{ manufacturer = ''; model = ''; family = ''; pcType = 0 }
+    os       = @{ name = ''; version = ''; build = ''; arch = ''; installedAt = $null }
+    board    = @{ manufacturer = ''; product = ''; version = ''; bios = ''; biosDate = $null }
+    cpu      = @{ name = ''; cores = $cores; threads = $cores; maxMHz = $null; socket = ''; l2KB = $null; l3KB = $null }
+    memory   = @{ totalBytes = 0; maxBytes = $null; slots = $null; modules = @() }
+    gpus     = @()
+    disks    = @()
+    network  = @()
+    monitors = @()
+  }
+  try {
+    $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+    $specs.computer = @{ manufacturer = [string]$cs.Manufacturer; model = [string]$cs.Model; family = [string]$cs.SystemFamily; pcType = [int]$cs.PCSystemType }
+    $specs.memory.totalBytes = [int64]$cs.TotalPhysicalMemory
+  } catch { }
+  try {
+    $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+    $installed = $null
+    if ($os.InstallDate) { $installed = $os.InstallDate.ToUniversalTime().ToString('o') }
+    $specs.os = @{ name = [string]$os.Caption; version = [string]$os.Version; build = [string]$os.BuildNumber; arch = [string]$os.OSArchitecture; installedAt = $installed }
+  } catch { }
+  try {
+    $board = Get-CimInstance Win32_BaseBoard -ErrorAction Stop | Select-Object -First 1
+    $bios = Get-CimInstance Win32_BIOS -ErrorAction Stop | Select-Object -First 1
+    $biosDate = $null
+    if ($bios.ReleaseDate) { $biosDate = $bios.ReleaseDate.ToUniversalTime().ToString('o') }
+    $specs.board = @{ manufacturer = [string]$board.Manufacturer; product = [string]$board.Product; version = [string]$board.Version; bios = [string]$bios.SMBIOSBIOSVersion; biosDate = $biosDate }
+  } catch { }
+  try {
+    $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
+    $specs.cpu = @{ name = ([string]$cpu.Name).Trim(); cores = [int]$cpu.NumberOfCores; threads = [int]$cpu.NumberOfLogicalProcessors; maxMHz = [int]$cpu.MaxClockSpeed; socket = [string]$cpu.SocketDesignation; l2KB = [int]$cpu.L2CacheSize; l3KB = [int]$cpu.L3CacheSize }
+  } catch { }
+  try {
+    $modules = New-Object System.Collections.ArrayList
+    foreach ($m in (Get-CimInstance Win32_PhysicalMemory -ErrorAction Stop)) {
+      $typeCode = [int]$m.SMBIOSMemoryType
+      if ($typeCode -eq 0) { $typeCode = [int]$m.MemoryType }
+      [void]$modules.Add(@{
+        slot            = [string]$m.DeviceLocator
+        bank            = [string]$m.BankLabel
+        bytes           = [int64]$m.Capacity
+        speed           = [int]$m.Speed
+        configuredSpeed = [int]$m.ConfiguredClockSpeed
+        typeCode        = $typeCode
+        formFactor      = [int]$m.FormFactor
+        manufacturer    = ([string]$m.Manufacturer).Trim()
+        partNumber      = ([string]$m.PartNumber).Trim()
+      })
+    }
+    $specs.memory.modules = @($modules)
+    $array = Get-CimInstance Win32_PhysicalMemoryArray -ErrorAction Stop | Where-Object { $_.Use -eq 3 } | Select-Object -First 1
+    if ($array) {
+      $maxKB = [int64]$array.MaxCapacity
+      if ($array.PSObject.Properties['MaxCapacityEx'] -and $array.MaxCapacityEx) { $maxKB = [int64]$array.MaxCapacityEx }
+      $specs.memory.maxBytes = $maxKB * 1024
+      $specs.memory.slots = [int]$array.MemoryDevices
+    }
+  } catch { }
+  try {
+    $gpus = New-Object System.Collections.ArrayList
+    foreach ($g in (Get-CimInstance Win32_VideoController -ErrorAction Stop)) {
+      $res = $null
+      if ($g.CurrentHorizontalResolution) { $res = "$($g.CurrentHorizontalResolution) x $($g.CurrentVerticalResolution)" }
+      [void]$gpus.Add(@{ name = [string]$g.Name; vramBytes = [int64]$g.AdapterRAM; driver = [string]$g.DriverVersion; resolution = $res })
+    }
+    $specs.gpus = @($gpus)
+  } catch { }
+  try {
+    $systemDisk = $null
+    try { $systemDisk = (Get-Partition -DriveLetter ($env:SystemDrive.TrimEnd(':')) -ErrorAction Stop | Select-Object -First 1).DiskNumber } catch { }
+    # A disk can carry several lettered partitions; the biggest one names it
+    # and the totals add every one up.
+    $partitions = @{}
+    try {
+      foreach ($p in (Get-Partition -ErrorAction Stop | Where-Object { $_.DriveLetter })) {
+        $key = "$($p.DiskNumber)"
+        if (-not $partitions.ContainsKey($key)) { $partitions[$key] = New-Object System.Collections.ArrayList }
+        [void]$partitions[$key].Add(@{ letter = "$($p.DriveLetter):"; size = [int64]$p.Size })
+      }
+    } catch { }
+    $disks = New-Object System.Collections.ArrayList
+    foreach ($d in (Get-PhysicalDisk -ErrorAction Stop)) {
+      $number = [int]$d.DeviceId
+      $letter = $null
+      $total = 0; $free = $null
+      $parts = $partitions["$number"]
+      if ($parts) {
+        $ordered = @($parts | Sort-Object { $_.size } -Descending)
+        $letter = ($ordered | ForEach-Object { $_.letter }) -join ' '
+        foreach ($part in $ordered) {
+          try {
+            $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($part.letter)'" -ErrorAction Stop
+            $total += [int64]$drive.Size
+            if ($null -eq $free) { $free = [int64]0 }
+            $free += [int64]$drive.FreeSpace
+          } catch { }
+        }
+      }
+      [void]$disks.Add(@{ name = [string]$d.FriendlyName; mediaType = [string]$d.MediaType; bus = [string]$d.BusType; bytes = [int64]$d.Size; health = [string]$d.HealthStatus; system = ($null -ne $systemDisk -and $number -eq $systemDisk); letter = $letter; totalBytes = $total; freeBytes = $free })
+    }
+    $specs.disks = @($disks)
+  } catch { }
+  try {
+    $nics = New-Object System.Collections.ArrayList
+    foreach ($n in (Get-CimInstance Win32_NetworkAdapter -Filter 'PhysicalAdapter=True' -ErrorAction Stop)) {
+      if ($n.Name -match 'Wintun|TAP-Windows|OpenVPN|PdaNet|Hyper-V|VMware|VirtualBox|Bluetooth Device \(Personal') { continue }
+      $speed = $null
+      if ($n.Speed -and [int64]$n.Speed -lt 1000000000000) { $speed = [int64]$n.Speed }
+      [void]$nics.Add(@{ name = [string]$n.Name; speedBps = $speed; up = [bool]$n.NetEnabled })
+    }
+    $specs.network = @($nics)
+  } catch { }
+  try {
+    $monitors = New-Object System.Collections.ArrayList
+    foreach ($mon in (Get-CimInstance Win32_DesktopMonitor -ErrorAction Stop)) {
+      if (-not $mon.ScreenWidth) { continue }
+      [void]$monitors.Add(@{ name = [string]$mon.Name; width = [int]$mon.ScreenWidth; height = [int]$mon.ScreenHeight })
+    }
+    $specs.monitors = @($monitors)
+  } catch { }
+  $script:specsCache = $specs
+  $specs
+}
+
+
 while ($true) {
   $line = [Console]::In.ReadLine()
   if ($null -eq $line) { break }
@@ -733,6 +868,9 @@ while ($true) {
       }
       'cpuLive' {
         Send @{ id = $id; ok = $true; data = (Get-CpuLive) }
+      }
+      'specs' {
+        Send @{ id = $id; ok = $true; data = (Get-SystemSpecs) }
       }
       'powerValues' {
         $values = @{}

@@ -11,6 +11,7 @@ export type ViewId =
 'performance' |
 'processes' |
 'antivirus' |
+'system' |
 'history';
 
 export interface ViewMeta {
@@ -59,6 +60,10 @@ export const VIEW_META: Record<ViewId, ViewMeta> = {
   antivirus: {
     title: 'Antivirus',
     description: 'What real-time scanning costs a build machine, and the folders still being inspected on every write.'
+  },
+  system: {
+    title: 'This PC',
+    description: 'Everything in the box, and what the board could take instead: a stronger CPU, more memory, faster storage.'
   },
   history: { title: 'History', description: 'Every scan and cleanup this machine has done, and what each one bought back.' }
 };

@@ -23,6 +23,7 @@ Pages:
 | **Startup programs** | Task Manager's startup list with the same on/off switch |
 | **Background services** | SysMain and Windows Search, reversible |
 | **Antivirus**   | Which build folders real-time scanning still inspects, and the exclusions to fix it |
+| **This PC**     | Everything in the box — board, CPU socket, memory slots and sticks, GPUs, disks — and the upgrade paths worked out from it: the strongest CPU the socket takes, how much RAM the board accepts and which sticks to swap, whether NVMe is an option |
 | **History**     | Every scan and deletion this machine has done, and what each one bought back                |
 
 Everything it removes is something your tooling puts back: `npm install`, a Gradle sync, your
@@ -290,6 +291,27 @@ The same tab lists startup programs (the Run keys and Startup folders, gated by 
 `StartupApproved` values Task Manager writes — 02 enabled, 03 disabled) and two services worth
 turning off on some machines: SysMain on a hard disk, Windows Search indexing on a build box.
 Both are reversible from the same switch.
+
+## While a scan runs
+
+Every counting page — App junk, Projects, Drives — shows a card deck while it works: a
+remaining-work card every few cards ("42% done · 19 folders left · about a minute at this
+pace, the big folders always come last"), live cards built from what has been found so far
+(biggest folder, programs found, apps still running), and facts about the section and the
+machine in between. Cards advance on their own, or by swipe, the arrows, or the arrow keys.
+Rows still being counted show a soft fog where the number will be — one CSS gradient and one
+keyframe, so a few hundred of them cost nothing.
+
+## What the This PC page knows
+
+`agent.ps1` reads SMBIOS/WMI once (`Win32_ComputerSystem`, `Win32_BaseBoard`, `Win32_BIOS`,
+`Win32_Processor`, `Win32_PhysicalMemory` + `PhysicalMemoryArray`, `Win32_VideoController`,
+`Get-PhysicalDisk` + partitions, physical network adapters, monitors) and caches it; the first
+read takes ~20 s while the providers load, so `main.cjs` takes it quietly ten seconds after
+launch. `upgrades.cjs` turns the reading into advice with a table of sockets and their strongest
+chips (LGA1155/1150/1151/1200/1700/1851, AM4/AM5), the memory array's slot count and maximum,
+and the chipset generation for NVMe. Mobile processors are recognised by suffix and by the
+chassis type, and reported as soldered. Every card carries a confidence tag.
 
 ## Throttling
 

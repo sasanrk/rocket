@@ -106,6 +106,7 @@ contextBridge.exposeInMainWorld('reclaim', {
 
   // ---------------------------------------------------------------------- cpu
   cpuInfo: () => ipcRenderer.invoke('reclaim:cpuInfo'),
+  systemReport: () => ipcRenderer.invoke('reclaim:systemReport'),
   cpuLive: () => ipcRenderer.invoke('reclaim:cpuLive'),
   applyCpuTweaks: (ids) => ipcRenderer.invoke('reclaim:applyCpuTweaks', ids),
   restoreCpu: () => ipcRenderer.invoke('reclaim:restoreCpu'),

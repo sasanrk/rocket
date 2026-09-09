@@ -47,7 +47,7 @@ const SCHEMA = {
     'home',
     oneOf<ViewId>(
       'home', 'projects', 'apps', 'programs', 'drives', 'power',
-      'startup', 'services', 'performance', 'processes', 'antivirus', 'history'
+      'startup', 'services', 'performance', 'processes', 'antivirus', 'system', 'history'
     )
   ),
   /** Last folder scanned for project junk, offered again on the next launch. */

@@ -13,6 +13,7 @@ import { ProjectsTab } from './ProjectsTab';
 import { AppsTab } from './AppsTab';
 import { ProgramsView } from './ProgramsView';
 import { DrivesView } from './DrivesView';
+import { SystemView } from './SystemView';
 import { desktop } from '../utils/desktopBridge';
 import { ProcessesTab } from './ProcessesTab';
 import { PerformanceTab } from './PerformanceTab';
@@ -176,6 +177,7 @@ export function Workspace({ density }: WorkspaceProps) {
             {view === 'performance' && <PerformanceTab scannedRoots={scannedRoots} onOpen={setView} />}
             {view === 'processes' && <ProcessesTab />}
             {view === 'antivirus' && <AntivirusView />}
+            {view === 'system' && <SystemView />}
             {view === 'history' && <HistoryTab />}
           </motion.div>
         </AnimatePresence>

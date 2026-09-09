@@ -240,6 +240,9 @@ if (!app.requestSingleInstanceLock()) {
     // background, is why the Processes and Performance tabs open instantly
     // instead of sitting on a spinner the first time.
     system.warmUp()
+    // The hardware inventory takes ~20 s cold; taking it now, quietly, means
+    // the This PC page opens on data instead of a spinner.
+    setTimeout(() => system.systemReport().catch(() => {}), 10_000)
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -774,6 +777,7 @@ function reporting(work) {
 }
 
 ipcMain.handle('reclaim:cpuInfo', () => system.cpuInfo())
+ipcMain.handle('reclaim:systemReport', () => system.systemReport())
 ipcMain.handle('reclaim:cpuLive', () => system.cpuLive())
 ipcMain.handle('reclaim:applyCpuTweaks', reporting((ids) => system.applyCpuTweaks(ids)))
 ipcMain.handle('reclaim:restoreCpu', reporting(() => system.restoreCpu()))

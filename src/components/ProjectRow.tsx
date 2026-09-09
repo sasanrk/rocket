@@ -4,6 +4,7 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import type { Project } from '../types/project';
 import { activeTargets, freedBytes, reclaimableBytes } from '../types/project';
 import { Checkbox, type CheckState } from './Checkbox';
+import { Fog } from './ScanDeck';
 import { formatBytes } from '../utils/format';
 import { cn } from '../utils/cn';
 
@@ -87,9 +88,12 @@ export function ProjectRow({
           {project.kind === 'node' ? <NodeMark /> : <AndroidMark />}
           <div className="min-w-0">
             <p className="truncate text-[13px] font-medium leading-tight text-ink">{project.name}</p>
+            {project.pending ?
+            <span className="mt-1 flex items-center gap-1.5"><Fog className="h-2.5 w-20" /><Fog className="h-2.5 w-10" /></span> :
             <p className="mt-0.5 truncate font-mono text-[11px] leading-tight text-faint">
               {project.framework} · {formatBytes(project.totalBytes)} on disk
             </p>
+            }
           </div>
         </div>
 
@@ -122,7 +126,9 @@ export function ProjectRow({
               transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }} />
             
           </div>
-          {reclaimable > 0 ?
+          {project.pending ?
+          <span className="flex w-[68px] shrink-0 justify-end"><Fog className="h-3 w-12" /></span> :
+          reclaimable > 0 ?
           <span className="w-[68px] shrink-0 text-right font-mono text-[12px] font-medium tabular-nums text-ink">
               {formatBytes(reclaimable)}
             </span> :

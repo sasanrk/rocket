@@ -1012,7 +1012,106 @@ async function emptyRecycleBin() {
   return { items: Number(data.items) || 0, bytes: Number(data.bytes) || 0 }
 }
 
+// ------------------------------------------------------------------ specs
+
+const { adviseUpgrades, ramTypeLabel } = require('./upgrades.cjs')
+
+const FORM_FACTORS = { 8: 'DIMM', 12: 'SODIMM', 9: 'RIMM', 13: 'SRIMM', 0: 'unknown' }
+
+/**
+ * Everything in the box, normalised for the renderer, with the upgrade
+ * advice worked out from it. Slow the first time (WMI providers load), so
+ * the helper caches the raw reading.
+ */
+async function systemReport() {
+  const started = Date.now()
+  const raw = await (slowAgent || agent).call('specs')
+  const pcType = Number(raw.computer && raw.computer.pcType) || 0
+  const cpuName = String((raw.cpu && raw.cpu.name) || '')
+  const modules = Array.isArray(raw.memory && raw.memory.modules) ? raw.memory.modules : []
+  const specs = {
+    computer: {
+      manufacturer: String((raw.computer && raw.computer.manufacturer) || '').trim(),
+      model: String((raw.computer && raw.computer.model) || '').trim(),
+      family: String((raw.computer && raw.computer.family) || '').trim(),
+      // PCSystemType: 1 desktop, 2 mobile, 3 workstation, 8 max-performance server
+      type: pcType === 2 ? 'laptop' : pcType === 1 || pcType === 3 ? 'desktop' : 'other',
+    },
+    os: {
+      name: String((raw.os && raw.os.name) || 'Windows'),
+      version: String((raw.os && raw.os.version) || ''),
+      build: String((raw.os && raw.os.build) || ''),
+      arch: String((raw.os && raw.os.arch) || ''),
+      installedAt: (raw.os && raw.os.installedAt) || null,
+    },
+    board: {
+      manufacturer: String((raw.board && raw.board.manufacturer) || '').trim(),
+      product: String((raw.board && raw.board.product) || '').trim(),
+      version: String((raw.board && raw.board.version) || '').trim(),
+      bios: String((raw.board && raw.board.bios) || '').trim(),
+      biosDate: (raw.board && raw.board.biosDate) || null,
+    },
+    cpu: {
+      name: cpuName,
+      cores: Number(raw.cpu && raw.cpu.cores) || os.cpus().length,
+      threads: Number(raw.cpu && raw.cpu.threads) || os.cpus().length,
+      maxMHz: Number(raw.cpu && raw.cpu.maxMHz) || null,
+      socket: String((raw.cpu && raw.cpu.socket) || ''),
+      l2KB: Number(raw.cpu && raw.cpu.l2KB) || null,
+      l3KB: Number(raw.cpu && raw.cpu.l3KB) || null,
+    },
+    memory: {
+      totalBytes: Number(raw.memory && raw.memory.totalBytes) || os.totalmem(),
+      maxBytes: Number(raw.memory && raw.memory.maxBytes) || null,
+      slots: Number(raw.memory && raw.memory.slots) || null,
+      modules: modules.map((module) => ({
+        slot: String(module.slot || ''),
+        bank: String(module.bank || ''),
+        bytes: Number(module.bytes) || 0,
+        speed: Number(module.speed) || null,
+        configuredSpeed: Number(module.configuredSpeed) || null,
+        type: ramTypeLabel(Number(module.typeCode)),
+        formFactor: FORM_FACTORS[Number(module.formFactor)] || 'DIMM',
+        manufacturer: String(module.manufacturer || '').trim(),
+        partNumber: String(module.partNumber || '').trim(),
+      })),
+    },
+    gpus: (Array.isArray(raw.gpus) ? raw.gpus : []).map((gpu) => ({
+      name: String(gpu.name || ''),
+      vramBytes: Number(gpu.vramBytes) > 0 ? Number(gpu.vramBytes) : null,
+      driver: String(gpu.driver || ''),
+      resolution: gpu.resolution || null,
+    })),
+    disks: (Array.isArray(raw.disks) ? raw.disks : []).map((disk) => ({
+      name: String(disk.name || ''),
+      mediaType: String(disk.mediaType || 'Unspecified'),
+      bus: String(disk.bus || ''),
+      bytes: Number(disk.bytes) || 0,
+      health: String(disk.health || ''),
+      system: Boolean(disk.system),
+      letter: disk.letter || null,
+      totalBytes: Number(disk.totalBytes) || 0,
+      freeBytes: disk.freeBytes === null || disk.freeBytes === undefined ? null : Number(disk.freeBytes),
+    })),
+    network: (Array.isArray(raw.network) ? raw.network : []).map((nic) => ({
+      name: String(nic.name || ''),
+      speedBps: Number(nic.speedBps) || null,
+      up: Boolean(nic.up),
+    })),
+    monitors: (Array.isArray(raw.monitors) ? raw.monitors : []).map((monitor) => ({
+      name: String(monitor.name || ''),
+      width: Number(monitor.width) || null,
+      height: Number(monitor.height) || null,
+    })),
+  }
+  // The memory array sometimes reports fewer slots than there are sticks; trust the sticks.
+  if (specs.memory.slots !== null && specs.memory.slots < specs.memory.modules.length) specs.memory.slots = specs.memory.modules.length
+  const { platform, advice } = adviseUpgrades(specs)
+  return { specs, platform, advice, tookMs: Date.now() - started }
+}
+
 module.exports = {
+  systemReport,
   snapshot,
   findLockers,
   setExclusions,

@@ -163,11 +163,11 @@ const GRADLE_MARKERS = ['build.gradle', 'build.gradle.kts', 'settings.gradle', '
  */
 function isRootLike(dir) {
   // "D:" alone would resolve to the current folder on D:, so it is answered first.
-  if (/^[A-Za-z]:[\/]*$/.test(String(dir))) return true
-  const normalized = path.resolve(dir).replace(/[\/]+$/, '')
+  if (/^[A-Za-z]:[\\/]*$/.test(String(dir))) return true
+  const normalized = path.resolve(dir).replace(/[\\/]+$/, '')
   if (/^[A-Za-z]:$/.test(normalized)) return true
-  if (/^[A-Za-z]:\Users\[^\]+$/i.test(normalized)) return true
-  const home = (process.env.USERPROFILE || '').replace(/[\/]+$/, '').toLowerCase()
+  if (/^[A-Za-z]:\\Users\\[^\\]+$/i.test(normalized)) return true
+  const home = (process.env.USERPROFILE || '').replace(/[\\/]+$/, '').toLowerCase()
   return Boolean(home) && normalized.toLowerCase() === home
 }
 

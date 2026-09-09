@@ -8,6 +8,7 @@ import {
   HistoryIcon,
   HouseIcon,
   LayoutGridIcon,
+  PcCaseIcon,
   PackageIcon,
   PowerIcon,
   RocketIcon,
@@ -67,7 +68,8 @@ const SECTIONS: NavSection[] = [
   items: [
   { id: 'performance', label: 'Performance', icon: <GaugeIcon className={ICON} strokeWidth={2} /> },
   { id: 'processes', label: 'Processes', icon: <CpuIcon className={ICON} strokeWidth={2} /> },
-  { id: 'antivirus', label: 'Antivirus', icon: <ShieldIcon className={ICON} strokeWidth={2} /> }]
+  { id: 'antivirus', label: 'Antivirus', icon: <ShieldIcon className={ICON} strokeWidth={2} /> },
+  { id: 'system', label: 'This PC', icon: <PcCaseIcon className={ICON} strokeWidth={2} />, tag: 'upgrades' }]
 
 }];
 

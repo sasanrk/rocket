@@ -5,7 +5,6 @@ import {
   FolderIcon,
   FolderOpenIcon,
   HardDriveIcon,
-  Loader2Icon,
   LockIcon,
   RefreshCwIcon,
   Trash2Icon,
@@ -15,6 +14,9 @@ import {
 import { toast } from 'sonner';
 import { useMachine } from '../contexts/MachineContext';
 import { Checkbox } from './Checkbox';
+import { Fog, ScanDeck } from './ScanDeck';
+import { factsFor, type Fact } from '../data/scanFacts';
+import { useJobProgress } from '../hooks/useJobProgress';
 import type { DriveFolder, DriveInfo } from '../types/drives';
 import { desktop } from '../utils/desktopBridge';
 import { formatBytes, formatCount, pluralize } from '../utils/format';
@@ -52,6 +54,16 @@ export function DrivesView() {
 
   const job = useMemo(() => jobs.find((entry) => entry.id === jobId) ?? null, [jobs, jobId]);
   const scanning = Boolean(job && (job.status === 'running' || job.status === 'queued'));
+  const progress = useJobProgress(jobId);
+  const facts = useMemo(() => factsFor('drives'), []);
+  const scanStartedAt = useMemo(() => (scanning ? Date.now() : undefined), [scanning]);
+  const liveFacts = useMemo<Fact[]>(() => {
+    const list: Fact[] = [];
+    const biggest = folders[0];
+    if (biggest) list.push({ id: 'live-biggest', kicker: 'Biggest so far', title: biggest.name, body: `${formatBytes(biggest.bytes)} in ${formatCount(biggest.files)} files${biggest.protected ? ' — Windows owns it, so it is shown, not offered.' : '. Click it to see what is inside.'}`, kind: 'live' });
+    if (folders.length > 3) list.push({ id: 'live-sum', kicker: 'Counted so far', title: `${pluralize(folders.length, 'folder')} · ${formatBytes(folders.reduce((sum, folder) => sum + folder.bytes, 0))}`, body: 'Folders land as they finish counting; the list re-sorts by size as it goes.', kind: 'live' });
+    return list;
+  }, [folders]);
 
   useEffect(() => {
     desktop.
@@ -193,9 +205,11 @@ export function DrivesView() {
       }
 
       {scanning &&
-      <div className="relative h-1 w-full shrink-0 overflow-hidden bg-line">
-          <motion.div className="absolute inset-y-0 w-1/3 rounded-full bg-accent" animate={{ left: ['-33%', '100%'] }} transition={{ duration: 1.4, ease: 'linear', repeat: Infinity }} />
-        </div>
+      <ScanDeck
+        label={`Measuring ${dir ?? 'the drive'}`}
+        facts={facts}
+        live={liveFacts}
+        progress={{ done: progress.done, total: progress.total, currentPath: progress.currentPath, startedAt: scanStartedAt }} />
       }
 
       {error && <p className="shrink-0 border-b border-danger/30 bg-danger/5 px-5 py-2 text-[11.5px] text-danger">{error}</p>}
@@ -251,10 +265,18 @@ export function DrivesView() {
               </motion.li>
             )}
           </AnimatePresence>
-          {folders.length === 0 &&
-          <li className="px-6 py-12 text-center text-[12.5px] text-faint">
-              {scanning ? <span className="flex items-center justify-center gap-2"><Loader2Icon className="h-4 w-4 animate-spin" strokeWidth={2} />Measuring…</span> : dir ? 'No folders here.' : 'Pick a drive.'}
-            </li>
+          {scanning &&
+          [0, 1, 2].map((slot) =>
+          <li key={`fog-${slot}`} className="flex items-center gap-3 border-b border-line/50 px-5 py-2.5" aria-hidden="true">
+                <span className="h-[18px] w-[18px] rounded-[5px] border border-line" />
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line bg-raised"><Fog className="h-3.5 w-3.5" /></span>
+                <span className="min-w-0 flex-1"><Fog className="block h-3 w-40" /><Fog className="mt-2 block h-1 w-64 max-w-[320px]" /></span>
+                <Fog className="h-3 w-16" />
+              </li>
+          )
+          }
+          {folders.length === 0 && !scanning &&
+          <li className="px-6 py-12 text-center text-[12.5px] text-faint">{dir ? 'No folders here.' : 'Pick a drive.'}</li>
           }
         </ul>
       </div>

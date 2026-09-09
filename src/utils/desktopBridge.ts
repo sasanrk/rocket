@@ -20,6 +20,8 @@ import type {
 import type { RecycleBinInfo } from '../types/junk';
 import type { InstalledProgram, Leftover, UninstallResult } from '../types/programs';
 import type { DriveFolder, DriveInfo, MovePlan } from '../types/drives';
+import type { SystemReport } from '../types/specs';
+import { mockSystemReport } from '../data/mockSpecs';
 import { mockProjects, mockRoot, recentRoots } from '../data/mockProjects';
 import { mockSnapshot, mockDefender } from '../data/mockSystem';
 import { mockCpu, mockJunkEntries, mockRecycleBin, mockStartup } from '../data/mockJunk';
@@ -152,6 +154,8 @@ export interface DesktopApi {
 
   /** Hardware, the active power plan's processor values, and what each tweak would change. */
   cpuInfo(): Promise<CpuInfo>;
+  /** Everything in the box plus the upgrade paths worked out from it. */
+  systemReport(): Promise<SystemReport>;
   /** The cheap reading: clock, load and battery, for polling. */
   cpuLive(): Promise<CpuLive>;
   /** Applies tweaks by id in one administrator prompt; originals are kept for `restoreCpu`. */
@@ -601,6 +605,9 @@ const mockApi: DesktopApi = {
     return { ok: false, message: 'Process control needs the desktop app' };
   },
 
+  async systemReport() {
+    return mockSystemReport();
+  },
   async cpuInfo() {
     return mockCpu();
   },
