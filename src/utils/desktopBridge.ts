@@ -19,7 +19,7 @@ import type {
 '../types/system';
 import type { RecycleBinInfo } from '../types/junk';
 import type { InstalledProgram, Leftover, UninstallResult } from '../types/programs';
-import type { DriveFolder, DriveInfo, MovePlan } from '../types/drives';
+import type { DriveFolder, DriveInfo, DriveScanStart, MovePlan } from '../types/drives';
 import type { SystemReport } from '../types/specs';
 import { mockSystemReport } from '../data/mockSpecs';
 import { mockProjects, mockRoot, recentRoots } from '../data/mockProjects';
@@ -93,8 +93,12 @@ export interface DesktopApi {
   planMove(source: string, destinationParent: string): Promise<MovePlan>;
   /** Queues a move behind the grace window; the project's row follows the folder. */
   moveProject(source: string, destinationParent: string, graceMs?: number): Promise<{ok: boolean;jobId?: string;message?: string;}>;
-  /** Measures the folders directly under a path; they arrive on `folders` events. */
-  startDriveScan(dir: string): Promise<string | null>;
+  /**
+   * The folders directly under a path. Answered from the cache when the
+   * tree was already measured; otherwise a job measures it and folders arrive
+   * on `folders` events. `force` measures again regardless.
+   */
+  startDriveScan(dir: string, force?: boolean): Promise<DriveScanStart | null>;
   /** Deletes folders picked from the drive view; only ones that view reported are accepted. */
   deleteFolders(targets: DriveFolder[], graceMs?: number): Promise<string | null>;
   /** `graceMs` is the window in which cancelling means nothing was deleted. */

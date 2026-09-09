@@ -519,35 +519,82 @@ ipcMain.handle('reclaim:moveProject', async (_event, { source, destination, grac
 
 ipcMain.handle('reclaim:drives', () => drives.listDrives())
 
-ipcMain.handle('reclaim:startDriveScan', async (_event, dir) => {
+/** Kept depth for a folder measured on its own: three levels of children are complete, deeper ones only when big. */
+const TREE_KEEP_DEPTH = 3
+
+/**
+ * The folders directly under a path, biggest first.
+ *
+ * Cache first: if the helper has already walked this folder, the answer is
+ * immediate and nothing is measured again. Otherwise a job measures each
+ * top-level folder in turn — every size it produces, all the way down, goes
+ * into the cache, so opening any of them afterwards is a lookup.
+ */
+ipcMain.handle('reclaim:startDriveScan', async (_event, { dir, force }) => {
   if (typeof dir !== 'string' || !path.isAbsolute(dir)) return null
-  const target = path.normalize(dir)
+  const target = drives.normalize(dir)
   if (!(await isDirectory(target))) return null
+  if (force) drives.cache.drop(target)
+
+  const cached = drives.cache.childrenOf(target)
+  if (cached) return { folders: cached.folders, looseBytes: cached.looseBytes, looseFiles: cached.looseFiles, measuredAt: cached.measuredAt, bytes: cached.bytes }
+
   const job = jobs.create({
     type: 'drivescan',
     label: `Measuring ${target}`,
-    detail: 'Every folder directly inside it, biggest first',
+    detail: 'Every folder inside it, all the way down, once',
     run: async (ctx) => {
-      const handle = runInProcess(
-        { type: 'driveScan', dir: target, tuning: ctx.throttle() },
-        {
-          onProgress: ({ type: _type, ...rest }) => ctx.progress(rest),
-          onDiscovered: noop,
-          onDropped: noop,
-          onProjects: noop,
-          onRemoved: noop,
-          onFailed: noop,
-          onFolders: (items) => {
-            drives.remember(target, items)
-            ctx.emit('folders', { dir: target, items })
-          },
-        },
-      )
-      ctx.attach(handle)
-      return handle.completion
+      const startedAt = Date.now()
+      let entries
+      try {
+        entries = await fsp.readdir(target, { withFileTypes: true })
+      } catch (error) {
+        throw new Error(`Cannot read ${target}: ${error.code === 'EPERM' || error.code === 'EACCES' ? 'access denied' : error.message}`)
+      }
+      const children = entries.filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
+      const files = entries.filter((entry) => entry.isFile())
+      let looseBytes = 0
+      for (const entry of files) {
+        looseBytes += await fsp.stat(path.join(target, entry.name)).then((stat) => stat.size, () => 0)
+      }
+
+      const nodes = []
+      let bytes = looseBytes
+      let count = 0
+      for (const entry of children) {
+        if (ctx.state.cancelled) break
+        const child = path.join(target, entry.name)
+        ctx.progress({ done: count, total: children.length, currentPath: child, startedAt })
+        let result
+        try {
+          result = await system.treeSizes(child, TREE_KEEP_DEPTH)
+        } catch (error) {
+          console.warn('[reclaim] could not measure', child, error.message)
+          count += 1
+          continue
+        }
+        // Each measured top folder is its own cached tree; the folder itself is
+        // then re-registered as a child of the scanned directory.
+        drives.cache.ingest(child, result, TREE_KEEP_DEPTH)
+        nodes.push({ p: child, b: result.bytes, f: result.files, l: result.looseBytes, n: result.looseFiles, d: 1 })
+        bytes += Number(result.bytes) || 0
+        count += 1
+        ctx.emit('folders', {
+          dir: target,
+          items: [{ path: child, name: entry.name, bytes: Number(result.bytes) || 0, files: Number(result.files) || 0, protected: drives.isProtected(child) }],
+        })
+      }
+      // The scanned directory itself becomes a complete node without disturbing
+      // the trees just stored under it.
+      drives.cache.nodes.set(target.toLowerCase(), {
+        path: target, name: path.basename(target) || target, bytes, files: nodes.reduce((sum, node) => sum + node.f, 0) + files.length,
+        looseBytes, looseFiles: files.length, complete: !ctx.state.cancelled, measuredAt: Date.now(),
+      })
+      ctx.progress({ done: count, total: children.length, currentPath: '', startedAt })
+      return { dir: target, folders: count, bytes, looseBytes, looseFiles: files.length, durationMs: Date.now() - startedAt, cancelled: ctx.state.cancelled }
     },
   })
-  return job.id
+  return { jobId: job.id }
 })
 
 ipcMain.handle('reclaim:deleteFolders', async (_event, { targets, graceMs }) => {
@@ -565,6 +612,10 @@ ipcMain.handle('reclaim:deleteFolders', async (_event, { targets, graceMs }) => 
     run: async (ctx) => {
       const summary = await runFolderRemoval('folderClean', accepted.map((target) => ({ id: target.path, path: target.path, bytes: target.bytes, files: target.files })), ctx)
       if (!summary) return null
+      // Whatever went is taken off the cached sizes so the view stays right.
+      summary.items.forEach((item) => {
+        if (item.ok) drives.cache.forget(item.path, item.bytes, 0)
+      })
       const { items, ...totals } = summary
       await history.add({ type: 'clean', scope: 'drive', ...totals, items })
       return totals

@@ -17,6 +17,11 @@ export interface DriveFolder {
   protected: boolean;
 }
 
+/** Either a job to wait on, or the answer straight from the cache. */
+export type DriveScanStart =
+{jobId: string;} |
+{folders: DriveFolder[];looseBytes: number;looseFiles: number;measuredAt: number;bytes: number;};
+
 /** What a move would do, before it does it. */
 export interface MovePlan {
   ok: boolean;

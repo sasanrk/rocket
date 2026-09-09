@@ -14,12 +14,11 @@ import {
 import { toast } from 'sonner';
 import { useMachine } from '../contexts/MachineContext';
 import { Checkbox } from './Checkbox';
-import { Fog, ScanDeck } from './ScanDeck';
-import { factsFor, type Fact } from '../data/scanFacts';
+import { Fog, ScanStrip } from './ScanDeck';
 import { useJobProgress } from '../hooks/useJobProgress';
 import type { DriveFolder, DriveInfo } from '../types/drives';
 import { desktop } from '../utils/desktopBridge';
-import { formatBytes, formatCount, pluralize } from '../utils/format';
+import { formatBytes, formatCount, formatDuration, pluralize } from '../utils/format';
 import { cn } from '../utils/cn';
 
 function crumbs(dir: string): {label: string;path: string;}[] {
@@ -34,15 +33,19 @@ function crumbs(dir: string): {label: string;path: string;}[] {
 
 /**
  * What is taking the space on each drive: the folders directly under a path,
- * measured whole, biggest first, drill in by clicking. Anything Windows or an
- * installer owns is shown with a lock; everything else can be deleted from
- * here with the usual review and grace window.
+ * biggest first, drill in by clicking. A tree is measured once, all the way
+ * down; every folder opened after that is answered from memory, so moving
+ * around costs nothing. Anything Windows or an installer owns is shown with
+ * a lock; everything else can be deleted from here with the usual review
+ * and grace window.
  */
 export function DrivesView() {
   const { jobs, isNative } = useMachine();
   const [drives, setDrives] = useState<DriveInfo[]>([]);
   const [dir, setDir] = useState<string | null>(null);
   const [folders, setFolders] = useState<DriveFolder[]>([]);
+  const [loose, setLoose] = useState<{bytes: number;files: number;} | null>(null);
+  const [measuredAt, setMeasuredAt] = useState<number | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
@@ -55,15 +58,6 @@ export function DrivesView() {
   const job = useMemo(() => jobs.find((entry) => entry.id === jobId) ?? null, [jobs, jobId]);
   const scanning = Boolean(job && (job.status === 'running' || job.status === 'queued'));
   const progress = useJobProgress(jobId);
-  const facts = useMemo(() => factsFor('drives'), []);
-  const scanStartedAt = useMemo(() => (scanning ? Date.now() : undefined), [scanning]);
-  const liveFacts = useMemo<Fact[]>(() => {
-    const list: Fact[] = [];
-    const biggest = folders[0];
-    if (biggest) list.push({ id: 'live-biggest', kicker: 'Biggest so far', title: biggest.name, body: `${formatBytes(biggest.bytes)} in ${formatCount(biggest.files)} files${biggest.protected ? ' — Windows owns it, so it is shown, not offered.' : '. Click it to see what is inside.'}`, kind: 'live' });
-    if (folders.length > 3) list.push({ id: 'live-sum', kicker: 'Counted so far', title: `${pluralize(folders.length, 'folder')} · ${formatBytes(folders.reduce((sum, folder) => sum + folder.bytes, 0))}`, body: 'Folders land as they finish counting; the list re-sorts by size as it goes.', kind: 'live' });
-    return list;
-  }, [folders]);
 
   useEffect(() => {
     desktop.
@@ -89,32 +83,47 @@ export function DrivesView() {
   }, []);
 
   useEffect(() => {
-    if (job && job.status === 'failed' && job.error) setError(job.error);
+    if (!job) return;
+    if (job.status === 'failed' && job.error) setError(job.error);
+    if (job.status === 'done') setMeasuredAt(job.finishedAt ?? Date.now());
   }, [job]);
 
-  const scan = useCallback(async (target: string) => {
+  /** Opens a folder: from memory when it has been measured, otherwise a job measures it. */
+  const open = useCallback(async (target: string, force = false) => {
     if (currentJob.current) void desktop.cancelJob(currentJob.current);
+    setJobId(null);
     setDir(target);
     setFolders([]);
+    setLoose(null);
+    setMeasuredAt(null);
     setSelected(new Set());
     setError(null);
-    const id = await desktop.startDriveScan(target);
-    if (!id) {
+    const started = await desktop.startDriveScan(target, force);
+    if (!started) {
       setError(`Cannot read ${target}`);
       return;
     }
-    setJobId(id);
+    if ('folders' in started) {
+      setFolders(started.folders);
+      setLoose({ bytes: started.looseBytes, files: started.looseFiles });
+      setMeasuredAt(started.measuredAt);
+      return;
+    }
+    setJobId(started.jobId);
   }, []);
 
   useEffect(() => {
-    if (dir && jobId === null) void scan(dir);
-  }, [dir, jobId, scan]);
+    if (dir && jobId === null && folders.length === 0 && measuredAt === null && !error) void open(dir);
+    // Only the first paint of a chosen drive; later opens go through `open` directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dir]);
 
   const drive = drives.find((entry) => dir?.toUpperCase().startsWith(entry.root.toUpperCase())) ?? null;
-  const measured = folders.reduce((sum, folder) => sum + folder.bytes, 0);
+  const measured = folders.reduce((sum, folder) => sum + folder.bytes, 0) + (loose?.bytes ?? 0);
   const selectedFolders = folders.filter((folder) => selected.has(folder.path));
   const selectedBytes = selectedFolders.reduce((sum, folder) => sum + folder.bytes, 0);
   const biggest = folders[0]?.bytes ?? 1;
+  const age = measuredAt ? Date.now() - measuredAt : null;
 
   async function remove() {
     setConfirming(false);
@@ -139,7 +148,7 @@ export function DrivesView() {
             <button
               key={entry.root}
               type="button"
-              onClick={() => void scan(entry.root)}
+              onClick={() => void open(entry.root)}
               className={cn(
                 'flex min-w-[168px] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors duration-150 ease-swift',
                 active ? 'border-accent/50 bg-accent/10' : 'border-line bg-surface hover:border-faint'
@@ -169,7 +178,7 @@ export function DrivesView() {
                 {index > 0 && <ChevronRightIcon className="h-3.5 w-3.5 text-faint" strokeWidth={2} />}
                 <button
               type="button"
-              onClick={() => index < list.length - 1 && void scan(crumb.path)}
+              onClick={() => index < list.length - 1 && void open(crumb.path)}
               className={cn('rounded-md px-1.5 py-0.5 font-mono', index === list.length - 1 ? 'text-ink' : 'text-muted hover:bg-raised hover:text-ink')}>
 
                   {crumb.label}
@@ -178,7 +187,9 @@ export function DrivesView() {
           )}
           </nav>
           <span className="shrink-0 text-[11.5px] text-faint">
-            {scanning ? `${pluralize(folders.length, 'folder')} measured…` : `${pluralize(folders.length, 'folder')} · ${formatBytes(measured)}`}
+            {scanning ?
+          `${pluralize(folders.length, 'folder')} so far` :
+          `${pluralize(folders.length, 'folder')} · ${formatBytes(measured)}${age !== null ? ` · measured ${age < 60_000 ? 'just now' : `${formatDuration(age)} ago`}` : ''}`}
           </span>
           <button type="button" onClick={() => void desktop.revealInExplorer(dir)} className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors duration-150 ease-swift hover:text-ink">
             <FolderOpenIcon className="h-3.5 w-3.5" strokeWidth={2} />
@@ -186,8 +197,9 @@ export function DrivesView() {
           </button>
           <button
           type="button"
-          onClick={() => scanning && jobId ? void desktop.cancelJob(jobId) : void scan(dir)}
-          className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors duration-150 ease-swift hover:text-ink">
+          onClick={() => scanning && jobId ? void desktop.cancelJob(jobId) : void open(dir, true)}
+          className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors duration-150 ease-swift hover:text-ink"
+          title={scanning ? 'Stop measuring' : 'Walk this folder again from scratch'}>
 
             {scanning ? <XIcon className="h-3.5 w-3.5" strokeWidth={2} /> : <RefreshCwIcon className="h-3.5 w-3.5" strokeWidth={2} />}
             {scanning ? 'Stop' : 'Measure again'}
@@ -205,11 +217,9 @@ export function DrivesView() {
       }
 
       {scanning &&
-      <ScanDeck
+      <ScanStrip
         label={`Measuring ${dir ?? 'the drive'}`}
-        facts={facts}
-        live={liveFacts}
-        progress={{ done: progress.done, total: progress.total, currentPath: progress.currentPath, startedAt: scanStartedAt }} />
+        progress={{ done: progress.done, total: progress.total, currentPath: progress.currentPath, startedAt: progress.startedAt }} />
       }
 
       {error && <p className="shrink-0 border-b border-danger/30 bg-danger/5 px-5 py-2 text-[11.5px] text-danger">{error}</p>}
@@ -240,7 +250,7 @@ export function DrivesView() {
 
                 <button
                 type="button"
-                onClick={() => void scan(folder.path)}
+                onClick={() => void open(folder.path)}
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 title={`Open ${folder.path}`}>
 
@@ -275,6 +285,12 @@ export function DrivesView() {
               </li>
           )
           }
+          {loose && loose.files > 0 && !scanning &&
+          <li className="flex items-center justify-between gap-3 px-5 py-2.5 text-[11.5px] text-faint">
+              <span>{formatCount(loose.files)} loose file{loose.files === 1 ? '' : 's'} directly in this folder</span>
+              <span className="font-mono tabular-nums">{formatBytes(loose.bytes)}</span>
+            </li>
+          }
           {folders.length === 0 && !scanning &&
           <li className="px-6 py-12 text-center text-[12.5px] text-faint">{dir ? 'No folders here.' : 'Pick a drive.'}</li>
           }
@@ -284,9 +300,9 @@ export function DrivesView() {
       <div className="shrink-0 border-t border-line bg-surface px-5 py-2.5">
         <p className="flex items-center gap-2 text-[11.5px] leading-relaxed text-faint">
           <UndoDotIcon className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={2} />
-          Click a folder to see what is inside it. Deleting from here removes the folder and everything in it — it is for
-          the downloads, old projects and forgotten backups that fill a drive, and it waits a few seconds so it can be called
-          off. Folders Windows or an installer owns cannot be deleted from here.
+          A drive is measured once, all the way down; opening folders after that is instant. Deleting from here removes the
+          folder and everything in it — it waits a few seconds so it can be called off. Folders Windows or an installer
+          owns cannot be deleted from here.
           {!isNative && ' The browser preview cannot read drives.'}
         </p>
       </div>

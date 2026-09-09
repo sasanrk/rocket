@@ -21,8 +21,7 @@ import { useMachine, useMachineWatch } from '../contexts/MachineContext';
 import { useJobProgress } from '../hooks/useJobProgress';
 import { Checkbox, type CheckState } from './Checkbox';
 import { JunkDialog } from './JunkDialog';
-import { Fog, ScanDeck } from './ScanDeck';
-import { factsFor, type Fact } from '../data/scanFacts';
+import { Fog, ScanStrip } from './ScanDeck';
 import { CATEGORY_LABELS, type JunkEntry, type JunkGroup } from '../types/junk';
 import { desktop } from '../utils/desktopBridge';
 import { formatBytes, formatCount, pluralize } from '../utils/format';
@@ -232,18 +231,7 @@ export function AppsTab() {
   }, [phase, startScan]);
 
   const measured = useMemo(() => entries.filter((entry) => !entry.pending).length, [entries]);
-  const facts = useMemo(() => factsFor('apps'), []);
-  // The deck's live cards: what the scan has found so far, refreshed as it goes.
   const scanStartedAt = useMemo(() => (phase === 'scanning' ? Date.now() : undefined), [phase]);
-  const liveFacts = useMemo<Fact[]>(() => {
-    const done = entries.filter((entry) => !entry.pending && entry.bytes > 0).sort((a, b) => b.bytes - a.bytes);
-    const list: Fact[] = [];
-    if (done[0]) list.push({ id: 'live-biggest', kicker: 'Biggest so far', title: `${done[0].appLabel} · ${done[0].label}`, body: `${formatBytes(done[0].bytes)} in ${formatCount(done[0].files)} files. ${done[0].note}.`, kind: 'live' });
-    if (groups.length > 2) list.push({ id: 'live-programs', kicker: 'Found so far', title: `${pluralize(groups.length, 'program')} left something behind`, body: `${groups.slice(0, 4).map((group) => group.label).join(', ')}${groups.length > 4 ? ' and more' : ''}. ${formatBytes(totalBytes)} counted up to now.`, kind: 'live' });
-    const running = groups.filter((group) => group.running);
-    if (running.length > 0) list.push({ id: 'live-running', kicker: 'Heads up', title: `${running.map((group) => group.label).slice(0, 3).join(', ')} ${running.length === 1 ? 'is' : 'are'} running`, body: 'Files an open program holds stay where they are. Close it before emptying for a complete sweep, or empty now and catch the rest later.', kind: 'live' });
-    return list;
-  }, [entries, groups, totalBytes]);
   const cautionSelected = selectedEntries.filter((entry) => entry.safety === 'caution').length;
 
   return (
@@ -340,10 +328,8 @@ export function AppsTab() {
       </div>
 
       {phase === 'scanning' &&
-      <ScanDeck
+      <ScanStrip
         label="Measuring app caches"
-        facts={facts}
-        live={liveFacts}
         progress={{ done: progress.done, total: progress.total, currentPath: progress.currentPath, startedAt: progress.startedAt ?? scanStartedAt }} />
       }
 

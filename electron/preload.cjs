@@ -41,7 +41,7 @@ contextBridge.exposeInMainWorld('reclaim', {
   startScan: (root, depth) => ipcRenderer.invoke('reclaim:startScan', { root, depth }),
   planMove: (source, destination) => ipcRenderer.invoke('reclaim:planMove', { source, destination }),
   moveProject: (source, destination, graceMs) => ipcRenderer.invoke('reclaim:moveProject', { source, destination, graceMs }),
-  startDriveScan: (dir) => ipcRenderer.invoke('reclaim:startDriveScan', dir),
+  startDriveScan: (dir, force) => ipcRenderer.invoke('reclaim:startDriveScan', { dir, force: Boolean(force) }),
   deleteFolders: (targets, graceMs) =>
     ipcRenderer.invoke('reclaim:deleteFolders', {
       targets: targets.map((target) => ({ path: target.path, bytes: target.bytes, files: target.files })),

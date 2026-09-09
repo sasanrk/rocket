@@ -840,6 +840,112 @@ function Get-SystemSpecs {
 }
 
 
+# ----------------------------------------------------------------- tree sizes
+
+# Sizes every folder under a path in one pass. Compiled C# walks the tree with
+# FindFirstFile data, so a file's size comes with its name and nothing is
+# stat-ed twice; a drive with a million files takes seconds, not minutes.
+# Compiling costs about a second, once, the first time a drive is measured.
+$script:treeSizerReady = $false
+
+function Initialize-TreeSizer {
+  if ($script:treeSizerReady) { return }
+  Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.IO;
+
+public class TreeNode {
+  public string Path;
+  public long Bytes;
+  public long Files;
+  public long LooseBytes;
+  public long LooseFiles;
+  public int Depth;
+}
+
+public static class TreeSizer {
+  // Nodes shallower than keepDepth are always reported; deeper ones only when
+  // they hold at least minBytes. Beyond maxNodes the deep ones are dropped.
+  public static List<TreeNode> Measure(string root, int keepDepth, long minBytes, int maxNodes, out long visited) {
+    var nodes = new List<TreeNode>();
+    long count = 0;
+    Walk(new DirectoryInfo(root), 0, keepDepth, minBytes, maxNodes, nodes, ref count);
+    visited = count;
+    return nodes;
+  }
+
+  static TreeNode Walk(DirectoryInfo dir, int depth, int keepDepth, long minBytes, int maxNodes, List<TreeNode> nodes, ref long visited) {
+    var node = new TreeNode { Path = dir.FullName, Depth = depth };
+    visited++;
+    IEnumerable<FileSystemInfo> entries;
+    try {
+      entries = dir.EnumerateFileSystemInfos();
+    } catch (Exception) {
+      return node;
+    }
+    var children = new List<DirectoryInfo>();
+    try {
+      foreach (var entry in entries) {
+        if ((entry.Attributes & FileAttributes.ReparsePoint) != 0) continue;
+        if ((entry.Attributes & FileAttributes.Directory) != 0) {
+          children.Add((DirectoryInfo)entry);
+        } else {
+          var file = entry as FileInfo;
+          if (file == null) continue;
+          long length = 0;
+          try { length = file.Length; } catch (Exception) { }
+          node.LooseBytes += length;
+          node.LooseFiles++;
+        }
+      }
+    } catch (Exception) {
+      // A folder that turns unreadable part-way through keeps what was counted.
+    }
+    node.Bytes = node.LooseBytes;
+    node.Files = node.LooseFiles;
+    foreach (var child in children) {
+      var childNode = Walk(child, depth + 1, keepDepth, minBytes, maxNodes, nodes, ref visited);
+      node.Bytes += childNode.Bytes;
+      node.Files += childNode.Files;
+      if (childNode.Depth <= keepDepth || (childNode.Bytes >= minBytes && nodes.Count < maxNodes)) nodes.Add(childNode);
+    }
+    return node;
+  }
+}
+'@
+  $script:treeSizerReady = $true
+}
+
+function Get-TreeSizes([string]$dir, [int]$keepDepth, [int64]$minBytes) {
+  Initialize-TreeSizer
+  $started = [DateTime]::UtcNow
+  $visited = [int64]0
+  $nodes = [TreeSizer]::Measure($dir, $keepDepth, $minBytes, 60000, [ref]$visited)
+  $rootBytes = [int64]0; $rootFiles = [int64]0; $rootLoose = [int64]0; $rootLooseFiles = [int64]0
+  $list = New-Object System.Collections.ArrayList
+  foreach ($n in $nodes) {
+    [void]$list.Add(@{ p = $n.Path; b = $n.Bytes; f = $n.Files; l = $n.LooseBytes; n = $n.LooseFiles; d = $n.Depth })
+    if ($n.Depth -eq 1) { $rootBytes += $n.Bytes; $rootFiles += $n.Files }
+  }
+  # Loose files directly under the root are not a node; count them here.
+  try {
+    foreach ($f in ([System.IO.DirectoryInfo]$dir).EnumerateFiles()) { $rootLoose += $f.Length; $rootLooseFiles++ }
+  } catch { }
+  @{
+    root       = $dir
+    bytes      = $rootBytes + $rootLoose
+    files      = $rootFiles + $rootLooseFiles
+    looseBytes = $rootLoose
+    looseFiles = $rootLooseFiles
+    nodes      = @($list)
+    visited    = $visited
+    truncated  = ($nodes.Count -ge 60000)
+    tookMs     = [math]::Round(([DateTime]::UtcNow - $started).TotalMilliseconds)
+  }
+}
+
+
 while ($true) {
   $line = [Console]::In.ReadLine()
   if ($null -eq $line) { break }
@@ -871,6 +977,11 @@ while ($true) {
       }
       'specs' {
         Send @{ id = $id; ok = $true; data = (Get-SystemSpecs) }
+      }
+      'treeSizes' {
+        $keep = if ($request.keepDepth) { [int]$request.keepDepth } else { 3 }
+        $min = if ($request.minBytes) { [int64]$request.minBytes } else { [int64]2097152 }
+        Send @{ id = $id; ok = $true; data = (Get-TreeSizes $request.dir $keep $min) }
       }
       'powerValues' {
         $values = @{}

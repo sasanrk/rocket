@@ -1110,7 +1110,18 @@ async function systemReport() {
   return { specs, platform, advice, tookMs: Date.now() - started }
 }
 
+/**
+ * Sizes every folder under `dir` in one pass of the helper's compiled walker.
+ * `keepDepth` levels are always reported; deeper folders only when they hold
+ * at least `minBytes`. A whole drive can take a couple of minutes, so the
+ * wait is generous and the work runs on the slow helper.
+ */
+async function treeSizes(dir, keepDepth = 2, minBytes = 2 * 1024 * 1024) {
+  return slowAgent.call('treeSizes', { dir, keepDepth, minBytes }, 20 * 60 * 1000)
+}
+
 module.exports = {
+  treeSizes,
   systemReport,
   snapshot,
   findLockers,

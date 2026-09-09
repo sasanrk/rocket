@@ -294,13 +294,24 @@ Both are reversible from the same switch.
 
 ## While a scan runs
 
-Every counting page — App junk, Projects, Drives — shows a card deck while it works: a
-remaining-work card every few cards ("42% done · 19 folders left · about a minute at this
-pace, the big folders always come last"), live cards built from what has been found so far
-(biggest folder, programs found, apps still running), and facts about the section and the
-machine in between. Cards advance on their own, or by swipe, the arrows, or the arrow keys.
+Every counting page — App junk, Projects, Drives — shows one quiet line while it works: what
+it is doing, where it is, and how much is left ("42% · 19 folders left · about a minute").
 Rows still being counted show a soft fog where the number will be — one CSS gradient and one
 keyframe, so a few hundred of them cost nothing.
+
+## How Drives measures
+
+A folder tree is measured **once**, all the way down, by a compiled walker inside the
+PowerShell helper (`Get-TreeSizes` in `agent.ps1`): it reads sizes from the directory listing
+itself, so nothing is stat-ed twice, and a drive with a million files takes a minute or two
+rather than the ten a file-by-file walk would. Every folder size it produces is kept in
+`electron/drives.cjs`'s cache in the main process, three levels deep in full and deeper only
+for folders over 2 MB. Opening a folder in the view is then a lookup, answered before the job
+system is even involved; only a small, deep folder the walk did not keep children for is
+measured on its own, which is quick because it is small. A drive is measured one top-level
+folder at a time so results land as they finish. "Measure again" drops the cache for that
+folder; deleting from the view takes the freed bytes off every cached ancestor. The cache
+expires after 30 minutes.
 
 ## What the This PC page knows
 

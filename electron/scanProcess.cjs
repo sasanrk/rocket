@@ -16,7 +16,7 @@ const { findProjects, measureProject, removeTarget, measureTree } = require('./s
 const { discoverJunk, emptyJunk } = require('./appJunk.cjs')
 const { removeLeftover } = require('./programs.cjs')
 const { moveProject } = require('./mover.cjs')
-const { measureChildren, removeUserFolder } = require('./drives.cjs')
+const { removeUserFolder } = require('./drives.cjs')
 
 /** Progress is coalesced to this many milliseconds; the UI cannot use more. */
 const PROGRESS_MS = 120
@@ -346,24 +346,6 @@ async function runMove({ source, destination }) {
   return { ...result, durationMs: Date.now() - startedAt, cancelled: control.cancelled }
 }
 
-/** Measures the folders directly under a path, streaming each as it lands. */
-async function runDriveScan({ dir }) {
-  const startedAt = Date.now()
-  const progress = makeProgressSink()
-  const batch = makeBatcher('folders')
-  progress.push({ done: 0, total: 0, currentPath: dir })
-  let done = 0
-  const { folders, looseBytes, looseFiles } = await measureChildren(dir, state, (folder) => {
-    done += 1
-    batch.push(folder)
-    progress.push({ done, total: 0, currentPath: folder.path })
-  }, tuning)
-  progress.push({ done, total: done, currentPath: '' })
-  progress.close()
-  batch.close()
-  return { dir, folders: folders.length, bytes: folders.reduce((sum, folder) => sum + folder.bytes, 0) + looseBytes, looseBytes, looseFiles, durationMs: Date.now() - startedAt, cancelled: control.cancelled }
-}
-
 /** Deletes folders picked from the drive view; main only sends paths that view reported. */
 function runFolderClean({ targets }) {
   return runRemoval(targets, (target, known, report) => removeUserFolder(target, state, tuning, known, report))
@@ -401,7 +383,6 @@ process.parentPort.on('message', async ({ data }) => {
       appClean: runAppClean,
       leftoverClean: runLeftoverClean,
       move: runMove,
-      driveScan: runDriveScan,
       folderClean: runFolderClean,
     }
     const runner = runners[data.type]
