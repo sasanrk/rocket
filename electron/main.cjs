@@ -242,7 +242,7 @@ if (!app.requestSingleInstanceLock()) {
     system.warmUp()
     // The hardware inventory takes ~20 s cold; taking it now, quietly, means
     // the This PC page opens on data instead of a spinner.
-    setTimeout(() => system.systemReport().catch(() => {}), 10_000)
+    setTimeout(() => system.systemReport().catch(noop), 10_000)
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
