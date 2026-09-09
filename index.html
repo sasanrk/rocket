@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'" />
+    <title>Rocket — Free the space. Unleash the CPU.</title>
+    <style>
+      html,
+      body,
+      #root {
+        margin: 0;
+        height: 100%;
+      }
+      html {
+        background-color: #090b0d;
+      }
+      body,
+      #root {
+        background-color: inherit;
+      }
+    </style>
+    <script>
+      // Paint the remembered theme before the bundle loads, so someone who
+      // left the app in light mode never gets a dark frame on the way in.
+      // Kept in step with ThemeProvider and the palette in src/index.css.
+      (function () {
+        var theme = 'dark';
+        try {
+          var raw = window.localStorage.getItem('rocket.prefs.v1');
+          var stored = raw ? JSON.parse(raw).theme : null;
+          if (stored === 'light' || stored === 'dark') theme = stored;
+        } catch (error) {
+          /* No storage on this profile: the app boots dark, as it always has. */
+        }
+        var root = document.documentElement;
+        root.classList.toggle('dark', theme === 'dark');
+        root.style.colorScheme = theme;
+        root.style.backgroundColor = theme === 'dark' ? '#090b0d' : '#f4f6f8';
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>

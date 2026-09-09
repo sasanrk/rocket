@@ -1,0 +1,35 @@
+{
+  "folders": [
+    {
+      "name": "Reclaim",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/release": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/release": true,
+      "**/package-lock.json": true
+    },
+    "files.associations": {
+      "*.cjs": "javascript"
+    },
+    "editor.formatOnSave": false,
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "eslint.validate": ["javascript", "typescript", "typescriptreact"],
+    "terminal.integrated.defaultProfile.windows": "PowerShell"
+  },
+  "extensions": {
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "bradlc.vscode-tailwindcss",
+      "ms-vscode.powershell"
+    ]
+  }
+}
