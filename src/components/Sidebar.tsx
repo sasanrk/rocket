@@ -47,7 +47,7 @@ const SECTIONS: NavSection[] = [
   { id: 'drives', label: 'Drives', icon: <HardDriveIcon className={ICON} strokeWidth={2} /> },
   { id: 'apps', label: 'App junk', icon: <LayoutGridIcon className={ICON} strokeWidth={2} /> },
   { id: 'programs', label: 'Installed programs', icon: <PackageIcon className={ICON} strokeWidth={2} /> },
-  { id: 'projects', label: 'Project folders', icon: <FolderTreeIcon className={ICON} strokeWidth={2} />, tag: 'for developers' }]
+  { id: 'projects', label: 'Projects', icon: <FolderTreeIcon className={ICON} strokeWidth={2} />, tag: 'for developers' }]
 
 },
 {
