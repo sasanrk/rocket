@@ -15,8 +15,10 @@ const {
   measureProject,
   measureTree,
   isRemovable,
+  isRootLike,
   removeTarget,
 } = require('../electron/scanner.cjs')
+const { planMove } = require('../electron/mover.cjs')
 const { JobManager } = require('../electron/jobs.cjs')
 const { discoverJunk, isJunkPath, emptyJunk } = require('../electron/appJunk.cjs')
 const { acceptLeftovers, findLeftovers, removeLeftover, nameTokens } = require('../electron/programs.cjs')
@@ -77,6 +79,11 @@ async function testGuards() {
   check(!isRemovable('D:\\node_modules'), 'a shallow path is refused')
   check(!isRemovable('node_modules'), 'a relative path is refused')
   check(isRemovable(path.join(SANDBOX, 'alpha', 'node_modules')), 'a real node_modules is allowed')
+  check(isRootLike(process.env.USERPROFILE || 'C:\Users\someone'), 'the user profile is never a project')
+  check(isRootLike('D:'), 'a drive root is never a project')
+  check(!isRootLike(path.join(SANDBOX, 'alpha')), 'an ordinary folder can be one')
+  const profile = await planMove(process.env.USERPROFILE || 'C:\Users\someone', SANDBOX)
+  check(profile.ok === false, `moving the profile folder is refused: ${profile.message}`)
 
   const refused = await removeTarget(path.join(SANDBOX, 'alpha', 'src'), state)
   check(refused.ok === false, `deleting src is refused: ${refused.error}`)

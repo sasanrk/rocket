@@ -16,7 +16,8 @@
 const fsp = require('node:fs/promises')
 const path = require('node:path')
 const { spawn } = require('node:child_process')
-const { measureTree, removeTree, DEFAULT_TUNING } = require('./scanner.cjs')
+const { measureTree, removeTree, isRootLike, DEFAULT_TUNING } = require('./scanner.cjs')
+const { isProtected } = require('./drives.cjs')
 
 /** Folders never carried across: everything an install or a build puts back. */
 const EXCLUDED_NAMES = [
@@ -99,6 +100,13 @@ async function planMove(source, destinationParent, state = { cancelled: false })
   const destination = path.join(resolvedParent, path.basename(resolvedSource))
 
   if (!(await isDirectory(resolvedSource))) return { ok: false, message: 'The project folder no longer exists' }
+  // A profile folder, a drive, or anything Windows owns is not a project to move.
+  if (isRootLike(resolvedSource) || isProtected(resolvedSource)) {
+    return { ok: false, message: 'That folder is a user profile or a system folder, not a project' }
+  }
+  if (isRootLike(destination) || isProtected(destination)) {
+    return { ok: false, message: 'The destination is a system folder' }
+  }
   if (!(await isDirectory(resolvedParent))) return { ok: false, message: 'The destination folder does not exist' }
   const lowerSource = resolvedSource.toLowerCase()
   const lowerDest = destination.toLowerCase()

@@ -156,6 +156,21 @@ async function readJson(file) {
 
 const GRADLE_MARKERS = ['build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts', 'gradlew']
 
+/**
+ * A user's profile folder or a drive root is never a project, whatever stray
+ * package.json it holds: treating it as one would offer to move or delete
+ * the whole account.
+ */
+function isRootLike(dir) {
+  // "D:" alone would resolve to the current folder on D:, so it is answered first.
+  if (/^[A-Za-z]:[\/]*$/.test(String(dir))) return true
+  const normalized = path.resolve(dir).replace(/[\/]+$/, '')
+  if (/^[A-Za-z]:$/.test(normalized)) return true
+  if (/^[A-Za-z]:\Users\[^\]+$/i.test(normalized)) return true
+  const home = (process.env.USERPROFILE || '').replace(/[\/]+$/, '').toLowerCase()
+  return Boolean(home) && normalized.toLowerCase() === home
+}
+
 /** Classifies a directory from the file names it already contains — no I/O. */
 function kindFromNames(names) {
   if (names.has('package.json')) return 'node'
@@ -382,7 +397,7 @@ async function findProjects(root, state, maxDepth = 4, onFound, width = 32) {
 
       results.forEach((result, offset) => {
         if (!result) return
-        if (result.kind) {
+        if (result.kind && !isRootLike(result.dir)) {
           found.push(result.dir)
           if (onFound) onFound(result.dir, found.length)
           return
@@ -408,6 +423,7 @@ function isNestedIn(child, claimed) {
 }
 
 async function measureProject(dir, id, state, tuning = DEFAULT_TUNING) {
+  if (isRootLike(dir)) return null
   const kind = await detectKind(dir)
   if (!kind) return null
 
@@ -626,4 +642,4 @@ async function removeTarget(target, state, tuning = DEFAULT_TUNING, known = null
   }
 }
 
-module.exports = { findProjects, measureProject, isRemovable, removeTarget, removeTree, measureTree, DEFAULT_TUNING }
+module.exports = { findProjects, measureProject, isRemovable, isRootLike, removeTarget, removeTree, measureTree, DEFAULT_TUNING }
