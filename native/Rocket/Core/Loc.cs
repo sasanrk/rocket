@@ -13,12 +13,12 @@ public sealed class Loc : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action? LanguageChanged;
 
-    public string Lang { get; private set; } = "fa";
+    public string Lang { get; private set; } = "en";
     public bool IsFa => Lang == "fa";
 
     public void Set(string lang)
     {
-        Lang = lang == "en" ? "en" : "fa";
+        Lang = lang == "fa" ? "fa" : "en";
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsFa)));
         LanguageChanged?.Invoke();

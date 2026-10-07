@@ -8,7 +8,7 @@ public sealed class Settings
     public static string Folder { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Rocket");
     private static string File => Path.Combine(Folder, "settings.json");
 
-    public string Lang { get; set; } = "fa";
+    public string Lang { get; set; } = "en";
     public string Theme { get; set; } = "";
     public int IdleDays { get; set; } = 14;
     public List<string> ExtraRoots { get; set; } = [];
