@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <AssemblyName>Rocket</AssemblyName>
+    <RootNamespace>Rocket</RootNamespace>
+    <Product>Rocket</Product>
+    <Company>Rocket</Company>
+    <Description>Free the space your tools and AI models left behind.</Description>
+    <Version>2.2.0</Version>
+    <ApplicationIcon>Assets\rocket.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Small and cheap: workstation GC, no background GC threads, no satellite resources. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredCompilationQuickStartupJit>true</TieredCompilationQuickStartupJit>
+    <TieredPGO>true</TieredPGO>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\rocket.ico" />
+  </ItemGroup>
+
+</Project>

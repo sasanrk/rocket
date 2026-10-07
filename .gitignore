@@ -28,3 +28,7 @@ release
 release/
 dist/
 .claude/launch.json
+
+# native app
+native/**/bin/
+native/**/obj/

@@ -1,0 +1,227 @@
+<local:PageBase x:Class="Rocket.Pages.TunePage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:core="clr-namespace:Rocket.Core"
+                xmlns:local="clr-namespace:Rocket.Pages">
+    <local:PageBase.Resources>
+        <Style x:Key="Stat" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource DisplayFont}" />
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
+        </Style>
+        <Style x:Key="SectionHead" TargetType="TextBlock" BasedOn="{StaticResource H2}">
+            <Setter Property="FontSize" Value="16" />
+        </Style>
+    </local:PageBase.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+        <StackPanel Margin="0,0,0,24">
+            <TextBlock Style="{StaticResource PageTitle}" Text="{Binding Path=[tune.title], Source={x:Static core:Loc.I}}" />
+            <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" MaxWidth="760" HorizontalAlignment="Left"
+                       Text="{Binding Path=[tune.sub], Source={x:Static core:Loc.I}}" />
+
+            <!-- live clock -->
+            <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="22,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Sub}" Text="{Binding Path=[tune.clock], Source={x:Static core:Loc.I}}" />
+                        <TextBlock x:Name="ClockNow" Style="{StaticResource Stat}" Text="…" FlowDirection="LeftToRight" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="ClockOf" Style="{StaticResource Sub}" FontSize="11.5" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Style="{StaticResource Sub}" Text="{Binding Path=[tune.load], Source={x:Static core:Loc.I}}" />
+                        <TextBlock x:Name="LoadNow" Style="{StaticResource Stat}" Text="…" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Style="{StaticResource Sub}" Text="{Binding Path=[tune.plan], Source={x:Static core:Loc.I}}" />
+                        <TextBlock x:Name="PlanNow" Style="{StaticResource H2}" Margin="0,6,0,0" TextWrapping="Wrap" Text="…" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="3">
+                        <TextBlock Style="{StaticResource Sub}" Text="{Binding Path=[tune.cpu], Source={x:Static core:Loc.I}}" />
+                        <TextBlock x:Name="CpuName" Style="{StaticResource H2}" Margin="0,6,0,0" TextWrapping="Wrap" FontSize="13" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Border x:Name="Finding" Margin="0,10,0,0" CornerRadius="12" Padding="16,10" Visibility="Collapsed"
+                    Background="{DynamicResource DangerSoft}">
+                <DockPanel>
+                    <TextBlock Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="14" Foreground="{DynamicResource Warn}" />
+                    <TextBlock x:Name="FindingText" Margin="10,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+
+            <!-- CPU & power -->
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="8,14,8,12">
+                <StackPanel>
+                    <DockPanel Margin="14,0,14,8">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="BtnRestore" Style="{StaticResource Ghost}" Click="Restore_Click" Margin="0,0,10,0" Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE7A7;" FontSize="12"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    <TextBlock Margin="8,0,0,0" Text="{Binding Path=[tw.restore], Source={x:Static core:Loc.I}}" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="BtnApply" Style="{StaticResource Primary}" Click="Apply_Click" Padding="18,9">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE945;" FontSize="12" Foreground="White" />
+                                    <TextBlock x:Name="BtnApplyText" Margin="8,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionHead}" Text="{Binding Path=[tw.section], Source={x:Static core:Loc.I}}" />
+                            <TextBlock x:Name="PowerNote" Style="{StaticResource Sub}" FontSize="11.5" />
+                        </StackPanel>
+                    </DockPanel>
+                    <ItemsControl x:Name="Tweaks">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type core:Tweak}">
+                                <Border x:Name="b" CornerRadius="10" Padding="14,9" Background="Transparent">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox x:Name="tick" Style="{StaticResource Tick}" IsChecked="{Binding Chosen}" Click="Tweak_Click" />
+                                        <StackPanel Grid.Column="1" Margin="12,0">
+                                            <TextBlock Text="{Binding Title}" FontWeight="Medium" />
+                                            <TextBlock Text="{Binding Detail}" Style="{StaticResource Sub}" FontSize="11.5" />
+                                        </StackPanel>
+                                        <Border x:Name="chip" Grid.Column="2" Style="{StaticResource Badge}" Background="{DynamicResource SuccessSoft}"
+                                                BorderBrush="Transparent" Visibility="Collapsed">
+                                            <TextBlock Style="{StaticResource BadgeText}" Foreground="{DynamicResource Success}" Text="{Binding StateText}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="b" Property="Background" Value="{DynamicResource Hover}" />
+                                    </Trigger>
+                                    <DataTrigger Binding="{Binding Active}" Value="True">
+                                        <Setter TargetName="chip" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="tick" Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Available}" Value="False">
+                                        <Setter TargetName="b" Property="Opacity" Value="0.45" />
+                                        <Setter TargetName="tick" Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- background services -->
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="8,14,8,12">
+                <StackPanel>
+                    <StackPanel Margin="14,0,14,8">
+                        <TextBlock Style="{StaticResource SectionHead}" Text="{Binding Path=[svc.section], Source={x:Static core:Loc.I}}" />
+                        <TextBlock x:Name="SvcNote" Style="{StaticResource Sub}" FontSize="11.5" />
+                    </StackPanel>
+                    <ItemsControl x:Name="Services">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type core:Svc}">
+                                <Grid Margin="14,9">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox x:Name="sw" Style="{StaticResource Switch}" IsChecked="{Binding On, Mode=OneWay}" Click="Service_Click"
+                                              VerticalAlignment="Top" Margin="0,2,0,0" />
+                                    <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                        <TextBlock Text="{Binding Title}" FontWeight="Medium" />
+                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Sub}" FontSize="11.5" />
+                                        <TextBlock Text="{Binding StateText}" Style="{StaticResource Sub}" FontSize="11" Foreground="{DynamicResource Faint}" />
+                                    </StackPanel>
+                                </Grid>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Present}" Value="False">
+                                        <Setter TargetName="sw" Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- antivirus -->
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="8,14,8,12">
+                <StackPanel>
+                    <DockPanel Margin="14,0,14,8">
+                        <Button x:Name="BtnExclude" DockPanel.Dock="Right" Style="{StaticResource Primary}" Click="Exclude_Click" Padding="18,9"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Style="{StaticResource Icon}" Text="&#xE83D;" FontSize="12" Foreground="White" />
+                                <TextBlock x:Name="BtnExcludeText" Margin="8,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionHead}" Text="{Binding Path=[def.section], Source={x:Static core:Loc.I}}" />
+                            <TextBlock x:Name="DefStatus" Style="{StaticResource Sub}" FontSize="11.5" Text="…" />
+                        </StackPanel>
+                    </DockPanel>
+                    <ItemsControl x:Name="Exclusions">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type core:Exclusion}">
+                                <Border x:Name="b" CornerRadius="10" Padding="14,7" Background="Transparent">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox x:Name="tick" Style="{StaticResource Tick}" IsChecked="{Binding Chosen}" Click="ExclusionTick_Click" />
+                                        <StackPanel Grid.Column="1" Margin="12,0">
+                                            <TextBlock Text="{Binding Label}" FontWeight="Medium" />
+                                            <TextBlock Text="{Binding Path}" Style="{StaticResource PathText}" />
+                                        </StackPanel>
+                                        <Border x:Name="chip" Grid.Column="2" Style="{StaticResource Badge}">
+                                            <TextBlock x:Name="chipText" Style="{StaticResource BadgeText}" Text="{Binding StateText}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="b" Property="Background" Value="{DynamicResource Hover}" />
+                                    </Trigger>
+                                    <DataTrigger Binding="{Binding Covered}" Value="True">
+                                        <Setter TargetName="chip" Property="Background" Value="{DynamicResource SuccessSoft}" />
+                                        <Setter TargetName="chipText" Property="Foreground" Value="{DynamicResource Success}" />
+                                        <Setter TargetName="tick" Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Covered}" Value="False">
+                                        <Setter TargetName="chip" Property="Background" Value="{DynamicResource DangerSoft}" />
+                                        <Setter TargetName="chipText" Property="Foreground" Value="{DynamicResource Warn}" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Grid Margin="14,10,14,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox x:Name="RealTime" Style="{StaticResource Switch}" Click="RealTime_Click" VerticalAlignment="Top" Margin="0,2,0,0" />
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                            <TextBlock Text="{Binding Path=[def.realtime], Source={x:Static core:Loc.I}}" FontWeight="Medium" />
+                            <TextBlock x:Name="RealTimeNote" Style="{StaticResource Sub}" FontSize="11.5"
+                                       Text="{Binding Path=[def.realtime.d], Source={x:Static core:Loc.I}}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</local:PageBase>

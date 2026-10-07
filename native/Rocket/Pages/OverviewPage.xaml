@@ -1,0 +1,150 @@
+<local:PageBase x:Class="Rocket.Pages.OverviewPage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:core="clr-namespace:Rocket.Core"
+                xmlns:local="clr-namespace:Rocket.Pages">
+    <local:PageBase.Resources>
+        <Style x:Key="Big" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource DisplayFont}" />
+            <Setter Property="FontSize" Value="34" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
+            <Setter Property="Margin" Value="0,10,0,0" />
+        </Style>
+        <Style x:Key="Link" TargetType="Button" BasedOn="{StaticResource Ghost}">
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="Margin" Value="0,6,6,0" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+    </local:PageBase.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+        <StackPanel Margin="0,0,0,24">
+            <TextBlock Style="{StaticResource PageTitle}" FontSize="30" Text="{Binding Path=[ov.title], Source={x:Static core:Loc.I}}" />
+            <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" MaxWidth="760" HorizontalAlignment="Left"
+                       Text="{Binding Path=[ov.sub], Source={x:Static core:Loc.I}}" />
+
+            <ItemsControl x:Name="Alerts" Margin="0,14,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Cursor="Hand" Margin="0,0,0,6" Click="Alert_Click" HorizontalContentAlignment="Stretch">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="b" CornerRadius="12" Padding="14,10" Background="{DynamicResource DangerSoft}">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Icon}" Text="&#xE76C;" FontSize="11" Foreground="{DynamicResource Muted}" />
+                                            <TextBlock Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="13" Foreground="{DynamicResource Warn}" />
+                                            <TextBlock Text="{Binding Text}" Margin="10,0" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                        </DockPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="b" Property="Opacity" Value="0.85" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <UniformGrid Columns="3" Margin="0,8,0,0">
+                <!-- free space -->
+                <Border Style="{StaticResource Card}" Margin="0,0,10,0">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource Plate}" Width="34" Height="34">
+                                <TextBlock Style="{StaticResource Icon}" Text="&#xE945;" Foreground="{DynamicResource Accent}" />
+                            </Border>
+                            <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource H2}" Text="{Binding Path=[ov.space], Source={x:Static core:Loc.I}}" />
+                                <TextBlock Style="{StaticResource Sub}" FontSize="11" Text="{Binding Path=[ov.space.tag], Source={x:Static core:Loc.I}}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock x:Name="SpaceBig" Style="{StaticResource Big}" Text="…" />
+                        <TextBlock x:Name="SpaceSub" Style="{StaticResource Sub}" FontSize="11.5" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button Style="{StaticResource Primary}" Padding="14,8" Margin="0,6,6,0" FontSize="12" Tag="clean" Click="Go_Click"
+                                    Content="{Binding Path=[nav.clean], Source={x:Static core:Loc.I}}" />
+                            <Button Style="{StaticResource Link}" Tag="projects" Click="Go_Click" Content="{Binding Path=[nav.projects], Source={x:Static core:Loc.I}}" />
+                            <Button Style="{StaticResource Link}" Tag="programs" Click="Go_Click" Content="{Binding Path=[nav.programs], Source={x:Static core:Loc.I}}" />
+                            <Button Style="{StaticResource Link}" Tag="map" Click="Go_Click" Content="{Binding Path=[nav.map], Source={x:Static core:Loc.I}}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <!-- speed -->
+                <Border Style="{StaticResource Card}" Margin="0,0,10,0">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource Plate}" Width="34" Height="34">
+                                <TextBlock Style="{StaticResource Icon}" Text="&#xEC4A;" Foreground="{DynamicResource Accent}" />
+                            </Border>
+                            <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource H2}" Text="{Binding Path=[ov.speed], Source={x:Static core:Loc.I}}" />
+                                <TextBlock Style="{StaticResource Sub}" FontSize="11" Text="{Binding Path=[ov.speed.tag], Source={x:Static core:Loc.I}}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock x:Name="SpeedBig" Style="{StaticResource Big}" Text="…" FlowDirection="LeftToRight" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="SpeedSub" Style="{StaticResource Sub}" FontSize="11.5" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button Style="{StaticResource Primary}" Padding="14,8" Margin="0,6,6,0" FontSize="12" Tag="tune" Click="Go_Click"
+                                    Content="{Binding Path=[nav.tune], Source={x:Static core:Loc.I}}" />
+                            <Button Style="{StaticResource Link}" Tag="startup" Click="Go_Click" Content="{Binding Path=[nav.startup], Source={x:Static core:Loc.I}}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <!-- keep watch -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource Plate}" Width="34" Height="34">
+                                <TextBlock Style="{StaticResource Icon}" Text="&#xE9D9;" Foreground="{DynamicResource Accent}" />
+                            </Border>
+                            <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource H2}" Text="{Binding Path=[ov.watch], Source={x:Static core:Loc.I}}" />
+                                <TextBlock Style="{StaticResource Sub}" FontSize="11" Text="{Binding Path=[ov.watch.tag], Source={x:Static core:Loc.I}}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock x:Name="WatchBig" Style="{StaticResource Big}" Text="…" />
+                        <TextBlock x:Name="WatchSub" Style="{StaticResource Sub}" FontSize="11.5" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button Style="{StaticResource Primary}" Padding="14,8" Margin="0,6,6,0" FontSize="12" Tag="processes" Click="Go_Click"
+                                    Content="{Binding Path=[nav.processes], Source={x:Static core:Loc.I}}" />
+                            <Button Style="{StaticResource Link}" Tag="system" Click="Go_Click" Content="{Binding Path=[nav.system], Source={x:Static core:Loc.I}}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- drives -->
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="20,16">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource H2}" Text="{Binding Path=[ov.drives], Source={x:Static core:Loc.I}}" Margin="0,0,0,10" />
+                    <ItemsControl x:Name="Drives">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="210" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Letter}" FontWeight="Bold" FontSize="14" FlowDirection="LeftToRight" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                    <Grid Grid.Column="1" Height="10" VerticalAlignment="Center">
+                                        <Border CornerRadius="5" Background="{DynamicResource Hover}" />
+                                        <ProgressBar x:Name="bar" Style="{StaticResource Meter}" Height="10" Maximum="1" Value="{Binding Used, Mode=OneWay}" />
+                                    </Grid>
+                                    <TextBlock Grid.Column="2" Text="{Binding FreeText}" Style="{StaticResource Sub}" FontSize="12" Margin="14,0,0,0"
+                                               VerticalAlignment="Center" TextWrapping="NoWrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource Sub}" FontSize="11.5" Margin="4,12,0,0" Text="{Binding Path=[ov.safety], Source={x:Static core:Loc.I}}" />
+        </StackPanel>
+    </ScrollViewer>
+</local:PageBase>
